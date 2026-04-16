@@ -4,7 +4,7 @@ import axios from "axios";
 // Prod: default to Spring Boot base URL unless overridden.
 const BASE_URL =
   import.meta.env.VITE_API_BASE_URL ||
-  (import.meta.env.DEV ? "" : "http://localhost:8081");
+  "https://aurum-backend-vd0a.onrender.com";
 
 const api = axios.create({
   baseURL: BASE_URL,
@@ -21,6 +21,7 @@ api.interceptors.request.use(
       const cleanedToken = token.replace(/^Bearer\s+/i, "");
       config.headers = config.headers || {};
       config.headers.Authorization = `Bearer ${cleanedToken}`;
+      config.withCredentials = false;
     }
     return config;
   },
