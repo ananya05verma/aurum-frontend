@@ -223,9 +223,7 @@ export default function Dashboard() {
   const location = useLocation();
   const [sip, setSip] = useState(null);
   const [loadingSip, setLoadingSip] = useState(true);
-  const [holdings, setHoldings] = useState([]);
   const [sips, setSips] = useState([]);
-  const [loadingHoldings, setLoadingHoldings] = useState(true);
   const [loadingSipList, setLoadingSipList] = useState(true);
 
   const fetchSip = useCallback(async () => {
@@ -240,26 +238,42 @@ export default function Dashboard() {
     }
   }, []);
 
-  const fetchHoldings = useCallback(async () => {
-    setLoadingHoldings(true);
-    try {
-      const res = await getHoldings();
-      const data = Array.isArray(res.data) ? res.data : res.data?.data || [];
-      setHoldings(data.map(normalizeHolding));
-    } catch (err) {
-      setHoldings([]);
-    } finally {
-      setLoadingHoldings(false);
-    }
-  }, []);
+  const derivedInvestments = sips.map((sip) => {
+    const months = sip.startDate
+      ? Math.max(
+          1,
+          Math.floor(
+            (new Date() - new Date(sip.startDate)) / (1000 * 60 * 60 * 24 * 30)
+          ) + 1
+        )
+      : 1;
+  
+    const invested = sip.monthlyAmount * months;
+  
+    return {
+      fundName: sip.fundName,
+      invested,
+      currentValue: sip.monthlyAmount * months, // simple approx (or use summary split later)
+      profitLoss: 0, // optional
+      weight: 100 / sips.length,
+      units: "—",
+    };
+  });
 
   const fetchSipList = useCallback(async () => {
     setLoadingSipList(true);
     try {
       const res = await getSips();
-      const data = Array.isArray(res.data) ? res.data : [];
+  
+      console.log("SIP API RESPONSE:", res.data); // 👈 ADD THIS
+  
+      const data = Array.isArray(res.data)
+        ? res.data
+        : res.data?.data || [];
+  
       setSips(data.map(normalizeSipItem));
     } catch (err) {
+      console.error("SIP FETCH ERROR:", err);
       setSips([]);
     } finally {
       setLoadingSipList(false);
@@ -267,14 +281,19 @@ export default function Dashboard() {
   }, []);
 
   const refreshAll = useCallback(() => {
-    fetchHoldings();
     fetchSipList();
     fetchSip();
-  }, [fetchHoldings, fetchSipList, fetchSip]);
+  }, [fetchSipList, fetchSip]);
 
   // Initial load + refetch when returning to this route.
   useEffect(() => {
     refreshAll();
+  
+    const interval = setInterval(() => {
+      refreshAll();
+    }, 2000); // temporary for debugging
+  
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -483,7 +502,7 @@ export default function Dashboard() {
                 <StatCardSkeleton />
               </div>
             </div>
-          ) : holdings.length === 0 ? (
+          ) : derivedInvestments.length === 0 ? (
             <div className="aurum-card p-6">
               <p className="text-sm text-zinc-400">No investments yet</p>
               <p className="text-xs text-zinc-600 mt-1">Start your first SIP</p>
@@ -495,7 +514,7 @@ export default function Dashboard() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {holdings.map((holding, idx) => (
+              {derivedInvestments.map((holding, idx) => (
                 <div
                   key={`${holding.fundName}-${idx}`}
                   className="aurum-card card-lift p-7 bg-gradient-to-br from-[#1a1a1a] to-[#111] hover:scale-[1.02] transition-all duration-300 hover:shadow-[0_0_0_1px_rgba(212,175,55,0.08),0_10px_30px_rgba(0,0,0,0.35)]"
