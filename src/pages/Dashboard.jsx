@@ -95,10 +95,29 @@ function normalizeHolding(item) {
 function normalizeSipItem(item) {
   return {
     fundName: item?.fundName || "Unknown Fund",
-    schemeCode: item?.schemeCode || "—",
-    monthlyAmount: toNumber(item?.monthlyAmount),
-    startDate: item?.startDate || "—",
+    schemeCode: getFirstDefined(item, ["schemeCode", "scheme_code", "scheme", "code"]) || "—",
+    monthlyAmount: toNumber(
+      getFirstDefined(item, ["monthlyAmount", "monthly_amount", "amount", "sipAmount", "sip_amount"])
+    ),
+    startDate: getFirstDefined(item, ["startDate", "start_date", "start", "date"]) || "—",
   };
+}
+
+function pickArrayPayload(payload) {
+  // Handle common shapes:
+  // - [] (direct list)
+  // - { data: [] }
+  // - { sips: [] }
+  // - { content: [] } (pagination)
+  // - { data: { sips: [] } } etc.
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.data)) return payload.data;
+  if (Array.isArray(payload?.sips)) return payload.sips;
+  if (Array.isArray(payload?.content)) return payload.content;
+  if (Array.isArray(payload?.data?.data)) return payload.data.data;
+  if (Array.isArray(payload?.data?.sips)) return payload.data.sips;
+  if (Array.isArray(payload?.data?.content)) return payload.data.content;
+  return [];
 }
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
@@ -257,16 +276,10 @@ export default function Dashboard() {
     setLoadingSipList(true);
     try {
       const res = await getSips();
-  
-      console.log("SIP API RESPONSE:", res.data); // 👈 ADD THIS
-  
-      const data = Array.isArray(res.data)
-        ? res.data
-        : res.data?.data || [];
-  
+
+      const data = pickArrayPayload(res.data);
       setSips(data.map(normalizeSipItem));
     } catch (err) {
-      console.error("SIP FETCH ERROR:", err);
       setSips([]);
     } finally {
       setLoadingSipList(false);
@@ -282,13 +295,7 @@ export default function Dashboard() {
   // Initial load + refetch when returning to this route.
   useEffect(() => {
     refreshAll();
-  
-    const interval = setInterval(() => {
-      refreshAll();
-    }, 2000); // temporary for debugging
-  
-    return () => clearInterval(interval);
-  }, []);
+  }, [refreshAll]);
 
   useEffect(() => {
     refreshAll();
@@ -305,7 +312,7 @@ export default function Dashboard() {
     if (location.state?.refresh) {
       refreshAll();
     }
-  }, [location.state]);
+  }, [location.state, refreshAll]);
 
   const plPositive = sip?.profitLoss > 0;
   const plNegative = sip?.profitLoss < 0;
