@@ -244,7 +244,7 @@ export default function Dashboard() {
     setLoadingHoldings(true);
     try {
       const res = await getHoldings();
-      const data = Array.isArray(res.data) ? res.data : [];
+      const data = Array.isArray(res.data) ? res.data : res.data?.data || [];
       setHoldings(data.map(normalizeHolding));
     } catch (err) {
       setHoldings([]);
@@ -275,8 +275,11 @@ export default function Dashboard() {
   // Initial load + refetch when returning to this route.
   useEffect(() => {
     refreshAll();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.key]);
+  }, []);
+
+  useEffect(() => {
+    refreshAll();
+  }, [location.pathname]);
 
   // Refetch when user comes back to the tab/window.
   useEffect(() => {
@@ -284,6 +287,12 @@ export default function Dashboard() {
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
   }, [refreshAll]);
+
+  useEffect(() => {
+    if (location.state?.refresh) {
+      refreshAll();
+    }
+  }, [location.state]);
 
   const plPositive = sip?.profitLoss > 0;
   const plNegative = sip?.profitLoss < 0;

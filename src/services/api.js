@@ -41,6 +41,14 @@ api.interceptors.response.use(
   }
 );
 
+api.interceptors.response.use(
+  (res) => res,
+  (err) => {
+    console.error("API Error:", err.response?.data || err.message);
+    return Promise.reject(err);
+  }
+);
+
 // ─── API Calls ───
 export const signup = (data) => api.post("/api/v1/auth/signup", data);
 export const login = (data) => api.post("/api/v1/auth/login", data);

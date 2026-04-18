@@ -37,7 +37,7 @@ export default function Sip() {
       setSuccess(`SIP created successfully for "${form.fundName}"!`);
       setForm(INITIAL_FORM);
       // Take user back to dashboard so they can see updated SIP summary.
-      setTimeout(() => navigate("/dashboard"), 700);
+      navigate("/dashboard", { state: { refresh: true } });
     } catch (err) {
       setError(
         err.response?.data?.message ||
