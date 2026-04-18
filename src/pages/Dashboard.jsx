@@ -4,7 +4,6 @@ import {
   getSipSummary,
   getAiInsights,
   getHoldings,
-  getSips,
 } from "../services/api";
 import { NavBar, StatCard, Loader } from "../services/UI";
 import {
@@ -90,34 +89,6 @@ function normalizeHolding(item) {
     profitLoss: toNumber(getFirstDefined(item, ["profitLoss", "profit_loss", "pnl"])),
     weight: toNumber(item?.weight),
   };
-}
-
-function normalizeSipItem(item) {
-  return {
-    fundName: item?.fundName || "Unknown Fund",
-    schemeCode: getFirstDefined(item, ["schemeCode", "scheme_code", "scheme", "code"]) || "—",
-    monthlyAmount: toNumber(
-      getFirstDefined(item, ["monthlyAmount", "monthly_amount", "amount", "sipAmount", "sip_amount"])
-    ),
-    startDate: getFirstDefined(item, ["startDate", "start_date", "start", "date"]) || "—",
-  };
-}
-
-function pickArrayPayload(payload) {
-  // Handle common shapes:
-  // - [] (direct list)
-  // - { data: [] }
-  // - { sips: [] }
-  // - { content: [] } (pagination)
-  // - { data: { sips: [] } } etc.
-  if (Array.isArray(payload)) return payload;
-  if (Array.isArray(payload?.data)) return payload.data;
-  if (Array.isArray(payload?.sips)) return payload.sips;
-  if (Array.isArray(payload?.content)) return payload.content;
-  if (Array.isArray(payload?.data?.data)) return payload.data.data;
-  if (Array.isArray(payload?.data?.sips)) return payload.data.sips;
-  if (Array.isArray(payload?.data?.content)) return payload.data.content;
-  return [];
 }
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
@@ -243,9 +214,7 @@ export default function Dashboard() {
   const [sip, setSip] = useState(null);
   const [loadingSip, setLoadingSip] = useState(true);
   const [holdings, setHoldings] = useState([]);
-  const [sips, setSips] = useState([]);
   const [loadingHoldings, setLoadingHoldings] = useState(true);
-  const [loadingSipList, setLoadingSipList] = useState(true);
 
   const fetchSip = useCallback(async () => {
     setLoadingSip(true);
@@ -272,25 +241,10 @@ export default function Dashboard() {
     }
   }, []);
 
-  const fetchSipList = useCallback(async () => {
-    setLoadingSipList(true);
-    try {
-      const res = await getSips();
-
-      const data = pickArrayPayload(res.data);
-      setSips(data.map(normalizeSipItem));
-    } catch (err) {
-      setSips([]);
-    } finally {
-      setLoadingSipList(false);
-    }
-  }, []);
-
   const refreshAll = useCallback(() => {
     fetchHoldings();
-    fetchSipList();
     fetchSip();
-  }, [fetchHoldings, fetchSipList, fetchSip]);
+  }, [fetchHoldings, fetchSip]);
 
   // Initial load + refetch when returning to this route.
   useEffect(() => {
@@ -316,7 +270,7 @@ export default function Dashboard() {
 
   const plPositive = sip?.profitLoss > 0;
   const plNegative = sip?.profitLoss < 0;
-  const hasAnyInvestments = holdings.length > 0 || sips.length > 0;
+  const hasAnyInvestments = holdings.length > 0;
 
   const allocationData = holdings
     .filter(
@@ -561,67 +515,6 @@ export default function Dashboard() {
                   </div>
                 </div>
               ))}
-            </div>
-          )}
-        </section>
-
-        <section className="mb-14">
-          <div className="flex items-center justify-between mb-4 fade-in stagger-4">
-            <p className="text-xs font-mono tracking-widest uppercase text-zinc-600">
-              SIP List
-            </p>
-            <button
-              type="button"
-              onClick={fetchSipList}
-              className="text-xs font-mono text-zinc-600 hover:text-gold-500 transition-colors"
-            >
-              Refresh
-            </button>
-          </div>
-
-          {loadingSipList ? (
-            <div>
-              <p className="text-sm text-zinc-500 mb-3">Loading...</p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <StatCardSkeleton />
-                <StatCardSkeleton />
-              </div>
-            </div>
-          ) : sips.length === 0 ? (
-            <div className="aurum-card p-6">
-              <p className="text-sm text-zinc-400">No investments yet</p>
-              <p className="text-xs text-zinc-600 mt-1">Start your first SIP</p>
-              <div className="mt-4">
-                <Link to="/sip" className="btn-gold inline-flex">
-                  Create SIP
-                </Link>
-              </div>
-            </div>
-          ) : (
-            <div className="aurum-card overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead className="border-b border-surface-700">
-                  <tr>
-                    <th className="px-6 py-4 text-xs font-mono tracking-widest uppercase text-zinc-500">Fund Name</th>
-                    <th className="px-6 py-4 text-xs font-mono tracking-widest uppercase text-zinc-500">Monthly Amount</th>
-                    <th className="px-6 py-4 text-xs font-mono tracking-widest uppercase text-zinc-500">Start Date</th>
-                    <th className="px-6 py-4 text-xs font-mono tracking-widest uppercase text-zinc-500">Scheme Code</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sips.map((sipItem, idx) => (
-                    <tr
-                      key={`${sipItem.fundName}-${sipItem.schemeCode}-${idx}`}
-                      className="border-b border-surface-800/70 hover:bg-surface-800/40 transition-colors"
-                    >
-                      <td className="px-6 py-4 text-zinc-200">{sipItem.fundName}</td>
-                      <td className="px-6 py-4 text-zinc-200">{formatCurrency(sipItem.monthlyAmount)}</td>
-                      <td className="px-6 py-4 text-zinc-300">{sipItem.startDate}</td>
-                      <td className="px-6 py-4 text-zinc-400">{sipItem.schemeCode}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
             </div>
           )}
         </section>
