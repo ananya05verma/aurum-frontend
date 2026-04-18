@@ -282,6 +282,12 @@ export default function Dashboard() {
   // Initial load + refetch when returning to this route.
   useEffect(() => {
     refreshAll();
+  
+    const interval = setInterval(() => {
+      refreshAll();
+    }, 2000); // temporary for debugging
+  
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
