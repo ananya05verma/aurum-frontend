@@ -122,7 +122,7 @@ function AllocationTooltip({ active, payload }) {
   );
 }
 
-// ─── AI Insights Panel ────────────────────────────────────────────────────────
+// ─── Investment Insights Panel ───────────────────────────────────────────────
 function InsightsPanel() {
   const [insights, setInsights] = useState("");
   const [loading, setLoading] = useState(false);
@@ -152,7 +152,7 @@ function InsightsPanel() {
             Investment Insights
           </p>
           <h2 className="text-white font-display font-semibold mt-1">
-            AI Analysis
+            Investment Analysis
           </h2>
         </div>
         <div className="flex items-center gap-2">
@@ -180,7 +180,7 @@ function InsightsPanel() {
         <div className="flex flex-col items-center justify-center py-10 gap-4">
           <Loader size="lg" />
           <p className="text-xs font-mono text-zinc-600 animate-pulse">
-            Analysing your portfolio…
+            Analysing your portfolio insights…
           </p>
         </div>
       )}
