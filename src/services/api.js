@@ -64,4 +64,7 @@ export const getSips = () => api.get("/api/v1/sip");
 export const createSip = (data) => api.post("/api/v1/sip", data);
 export const getAiInsights = () => api.get("/api/v1/sip/ai-insights");
 
+// Mutual fund scheme master (AMFI-backed via backend proxy)
+export const getAmfiSchemes = () => api.get("/api/v1/amfi/schemes");
+
 export default api;

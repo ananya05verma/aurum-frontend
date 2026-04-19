@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { createSip } from "../services/api";
+import { createSip, getAmfiSchemes } from "../services/api";
 import { NavBar, ErrorBanner, SuccessBanner, Loader } from "../services/UI";
 
 const INITIAL_FORM = {
@@ -16,9 +16,93 @@ export default function Sip() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [schemes, setSchemes] = useState([]);
+  const [schemesLoading, setSchemesLoading] = useState(false);
+  const [schemesError, setSchemesError] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadSchemes() {
+      setSchemesError("");
+      setSchemesLoading(true);
+      try {
+        const res = await getAmfiSchemes();
+        const body = res.data;
+        const list = Array.isArray(body)
+          ? body
+          : body?.data ?? body?.schemes ?? body?.content;
+        if (!Array.isArray(list)) {
+          throw new Error("Unexpected schemes response shape");
+        }
+        if (!cancelled) setSchemes(list);
+      } catch (e) {
+        if (!cancelled) {
+          setSchemes([]);
+          setSchemesError(
+            e.response?.data?.message ||
+              e.response?.data ||
+              "Could not load AMFI schemes. You can still enter name/code manually."
+          );
+        }
+      } finally {
+        if (!cancelled) setSchemesLoading(false);
+      }
+    }
+
+    loadSchemes();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const schemeByName = useMemo(() => {
+    const map = new Map();
+    for (const s of schemes) {
+      const name = (s.fundName ?? s.schemeName ?? s.name ?? "").trim();
+      const code = String(s.schemeCode ?? s.code ?? s.scheme_code ?? "").trim();
+      if (name && code && !map.has(name)) map.set(name, code);
+    }
+    return map;
+  }, [schemes]);
+
+  const schemeByCode = useMemo(() => {
+    const map = new Map();
+    for (const s of schemes) {
+      const name = (s.fundName ?? s.schemeName ?? s.name ?? "").trim();
+      const code = String(s.schemeCode ?? s.code ?? s.scheme_code ?? "").trim();
+      if (name && code && !map.has(code)) map.set(code, name);
+    }
+    return map;
+  }, [schemes]);
 
   const handleChange = (e) => {
-    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    const { name, value } = e.target;
+
+    // If user picks a fund name from the dropdown, auto-fill schemeCode.
+    if (name === "fundName") {
+      const pickedCode = schemeByName.get(value.trim());
+      setForm((prev) => ({
+        ...prev,
+        fundName: value,
+        schemeCode: pickedCode ?? prev.schemeCode,
+      }));
+      return;
+    }
+
+    // If user pastes a schemeCode, auto-fill fundName (best effort).
+    if (name === "schemeCode") {
+      const normalized = String(value).trim();
+      const pickedName = schemeByCode.get(normalized);
+      setForm((prev) => ({
+        ...prev,
+        schemeCode: value,
+        fundName: pickedName ?? prev.fundName,
+      }));
+      return;
+    }
+
+    setForm((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = async (e) => {
@@ -86,6 +170,7 @@ export default function Sip() {
                   </label>
                   <input
                     type="text"
+                    list="amfi-schemes"
                     name="fundName"
                     value={form.fundName}
                     onChange={handleChange}
@@ -93,6 +178,31 @@ export default function Sip() {
                     required
                     className="input-gold w-full"
                   />
+                  <datalist id="amfi-schemes">
+                    {schemes.map((s) => {
+                      const name = (s.fundName ?? s.schemeName ?? s.name ?? "").trim();
+                      const code = String(
+                        s.schemeCode ?? s.code ?? s.scheme_code ?? ""
+                      ).trim();
+                      if (!name || !code) return null;
+                      return (
+                        <option key={`${code}-${name}`} value={name}>
+                          {code}
+                        </option>
+                      );
+                    })}
+                  </datalist>
+                  {schemesLoading ? (
+                    <p className="mt-1.5 text-xs text-zinc-700">
+                      Loading AMFI schemes…
+                    </p>
+                  ) : schemesError ? (
+                    <p className="mt-1.5 text-xs text-amber-600">{schemesError}</p>
+                  ) : schemes.length ? (
+                    <p className="mt-1.5 text-xs text-zinc-700">
+                      Start typing to pick a scheme; code will auto-fill.
+                    </p>
+                  ) : null}
                 </div>
 
                 {/* Scheme Code */}
